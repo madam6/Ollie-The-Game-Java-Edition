@@ -34,7 +34,7 @@ As Ollie, your mission is to navigate through the game world, defeating enemies 
    - Description: Grants Ollie the ability to perform a super jump.
    - <img src="data/superJumpToken.gif" alt="Ollie's Space Adventure" width="100"/>
 
-## Getting Started
+## Getting Started 
 
 Follow these steps to start playing Ollie's Space Adventure:
 
