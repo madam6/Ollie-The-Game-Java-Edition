@@ -69,7 +69,7 @@ Pickups drop at random spots on the ground and disappear after 10 seconds.
 | <img src="data/superJumpToken.gif" width="64" alt="Super jump"> | Super jump | Launches Ollie into the air |
 | <img src="data/newAttackToken.gif" width="64" alt="Mass attack"> | Mass attack | Fires six shots upwards from where it was picked up |
 
-In story mode each level ends after one kill: a plane, then a clown, then a suit. Health, dashes and rainbows carry over to the next level; the score doesn't. Endless mode sends planes, clowns and suits until Ollie dies.
+In story mode each level ends after one kill: a plane, then a clown, then a suit. Health, dashes and rainbows carry over to the next level; the score doesn't. Endless mode keeps sending all three enemy types until Ollie dies.
 
 ## Code
 
@@ -103,15 +103,15 @@ public void begin() {
 }
 ```
 
-The physics step, the spawn timers and input all run on the Swing event thread, so game state is never touched from two threads at once. The one exception is a background thread that decodes the sounds while the menu is showing.
+The physics step, the spawn timers and input handling all run on the Swing event thread, so game state needs no locking. The one other thread decodes the sounds while the menu is showing, and `Sound` is the only class that synchronises.
 
 ## Rendering
 
-The art is drawn on 32-pixel canvases and exported at 10 times that size. CityEngine sizes an image by its height in world units, and the original heights didn't divide evenly: enemies came out at 4.38 screen pixels per art pixel, pickups at 3.13 and bullets at 2.5. Some art pixels ended up a screen pixel wider than their neighbours, and sprites shimmered as they moved. `Sprite` picks heights that land on whole numbers instead. Characters, barrels and explosions use 5 screen pixels per art pixel, half the backgrounds' 10, and pickups and bullets use 3. Hitboxes were scaled to match.
+Most of the art is drawn on 32-pixel canvases (64 for the boss) and exported at 10 times that size. CityEngine sizes an image by its height in world units, and the original heights didn't divide evenly: enemies came out at 4.38 screen pixels per art pixel, pickups at 3.13 and bullets at 2.5. Some art pixels ended up a screen pixel wider than their neighbours, and sprites shimmered as they moved. `Sprite` picks heights that land on whole numbers instead. Characters, barrels and explosions use 5 screen pixels per art pixel, half the backgrounds' 10, and pickups and bullets use 3. Hitboxes were scaled to match.
 
-`Lighting` adds glows, ground shadows and darkness on a grid of 5×5-pixel cells, one art pixel each, and scales the grid up without smoothing. Light falls off in flat bands, like hand-shaded pixel art. A glow adds light to the background colour under each cell, so a rainbow shot lights up the wall behind it. Level 3 and the boss fight are dark apart from the light around Ollie, shots, pickups, enemies and the volcano. Characters flash white when hit, and explosions and kills shake the screen. The HUD sits on the same 5-pixel grid and uses a small built-in font.
+`Lighting` draws glows, ground shadows and darkness on a grid of 5×5-pixel cells, the size of one art pixel on a character, and scales the grid up without smoothing. Brightness is rounded to six levels, so light falls off in flat bands the way hand-shaded pixel art does. A glow adds to the background colour under each cell, which is why a rainbow shot lights up the wall behind it. Level 3 and the boss fight are dark apart from the light around Ollie, shots, pickups, enemies and the volcano. On those levels a full repaint, lighting included, takes about 1 ms.
 
-On the dark levels a full repaint, lighting included, takes about 1 ms.
+Characters flash white when they're hit, and explosions and kills shake the screen. The HUD is laid out on the same 5-pixel grid and draws its text with a 3×5 pixel font from `PixelFont`.
 
 ## Performance
 
@@ -139,7 +139,13 @@ Other fixes from the same pass:
 - Every level also built a second `GameView` that was never shown, with its own button images and two extra bodies in the world.
 - The player's sprite was removed and re-added every frame, even when it hadn't changed.
 
-Bugs fixed along the way: retrying story mode could leave level 1 with no planes to spawn (the counter was static), the boss's health bar and its actual health were tracked separately and drifted apart, releasing any key while walking left stopped Ollie, holding the dash key spent every dash through key repeat, and pressing fire during the cooldown used up a rainbow without shooting.
+Gameplay bugs fixed at the same time:
+
+- Retrying story mode could leave level 1 with no planes to spawn, because the counter was static.
+- The boss's health bar and its actual health were tracked separately and drifted apart.
+- Releasing any key while walking left stopped Ollie.
+- Holding the dash key spent every dash through key repeat.
+- Pressing fire during the cooldown used up a rainbow without shooting.
 
 ## Known limitations
 
@@ -150,8 +156,6 @@ Bugs fixed along the way: retrying story mode could leave level 1 with no planes
 - The window is a fixed 800×800.
 - There are no automated tests. CI only checks that the project compiles.
 
-## Credits and license
+## License
 
-Made by Artem Korniienko, originally as coursework for a programming module at City, University of London.
-
-`lib/jbox2d-cityengine.jar` contains [JBox2D](https://github.com/jbox2d/jbox2d) (BSD 2-Clause) and CityEngine (City, University of London). It isn't covered by this project's license. Everything else is under the [MIT License](LICENSE).
+The game is under the [MIT License](LICENSE). The exception is `lib/jbox2d-cityengine.jar`, which contains [JBox2D](https://github.com/jbox2d/jbox2d) (BSD 2-Clause) and CityEngine (City, University of London) and keeps their terms.
