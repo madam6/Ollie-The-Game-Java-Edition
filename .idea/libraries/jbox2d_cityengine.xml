@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="jbox2d-cityengine">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/jbox2d-cityengine.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

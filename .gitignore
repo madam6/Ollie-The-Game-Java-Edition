@@ -1,0 +1,13 @@
+# build output
+out/
+build/
+*.class
+
+# IDE
+.idea/workspace.xml
+.idea/shelf/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
