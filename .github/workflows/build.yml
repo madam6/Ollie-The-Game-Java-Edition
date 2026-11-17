@@ -1,0 +1,19 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile
+        run: |
+          javac --release 17 -encoding UTF-8 -Xlint:all,-serial -Werror \
+            -cp lib/jbox2d-cityengine.jar -d build $(find src -name '*.java')
