@@ -3,34 +3,47 @@ package ollie.ui;
 import city.cs.engine.UserView;
 import ollie.Game;
 import ollie.characters.Boss;
-import ollie.characters.Player;
 import ollie.input.PlayerController;
 import ollie.levels.FinalLevel;
 import ollie.levels.GameLevel;
+import ollie.util.Timers;
 
+import java.awt.AlphaComposite;
 import java.awt.Color;
-import java.awt.Font;
+import java.awt.Composite;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.Point;
+import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Point2D;
+import java.awt.image.BufferedImage;
 
-/** Draws a level with the HUD on top, and shows Retry / Back once the run is over. */
+/**
+ * Draws a level: background, shadows and glows, the bodies, darkness, hit flashes, then the
+ * HUD on top. Shows Retry / Back once the run is over.
+ */
 public class GameView extends UserView {
 
-    private static final Font HUD_FONT = new Font("SansSerif", Font.PLAIN, 24);
-    private static final float HEALTH_BAR_SCALE = 1.36f;
-    private static final float BOSS_BAR_SCALE = 1.3f;
+    /** Long enough for the last shake and flash to fade after the world stops. */
+    private static final int SETTLE_MS = 800;
 
     private final GameLevel level;
     private final Image background;
+    private final Lighting lighting;
     private final SpriteButton retry;
     private final SpriteButton back;
+    private BufferedImage silhouette = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
 
     public GameView(Game game, GameLevel level) {
         super(level, Game.WIDTH, Game.HEIGHT);
         this.level = level;
         this.background = level.getBackground();
+        this.lighting = new Lighting(this, background, Game.WIDTH, Game.HEIGHT, level::groundHeightAt,
+                level.darkness(), level.darknessColour());
 
         setLayout(null);
         setFocusable(true);
@@ -53,31 +66,102 @@ public class GameView extends UserView {
     public void showEndButtons() {
         retry.setVisible(true);
         back.setVisible(true);
-        // The world has stopped stepping, so nothing else will trigger a repaint.
+        // The world has stopped stepping, so nothing else triggers a repaint. Paint again
+        // once the last shake and flash have faded, so the end screen doesn't freeze on them.
         repaint();
+        Timers.once(SETTLE_MS, this::repaint);
+    }
+
+    @Override
+    public void paintComponent(Graphics g) {
+        Point shake = level.getScreenShake().offset();
+        Graphics2D scene = (Graphics2D) g.create();
+        try {
+            if (shake.x != 0 || shake.y != 0) {
+                // Shifting the scene uncovers a strip at the edge; fill it with the unshifted background.
+                scene.drawImage(background, 0, 0, this);
+                scene.translate(shake.x, shake.y);
+            }
+            super.paintComponent(scene);
+        } finally {
+            scene.dispose();
+        }
+        Hud.paint((Graphics2D) g, getWidth(), getHeight(), level.getPlayer(), boss());
     }
 
     @Override
     protected void paintBackground(Graphics2D g) {
         g.drawImage(background, 0, 0, this);
+        lighting.begin();
+        level.addLight(lighting);
+        for (Object body : level.getStaticBodies()) {
+            if (body instanceof Lighting.LightSource source) {
+                source.addLight(lighting);
+            }
+        }
+        for (Object body : level.getDynamicBodies()) {
+            if (body instanceof Lighting.LightSource source) {
+                source.addLight(lighting);
+            }
+        }
+        lighting.paintUnder(g);
     }
 
     @Override
     protected void paintForeground(Graphics2D g) {
-        Player player = level.getPlayer();
-        g.setFont(HUD_FONT);
-        g.setColor(Color.YELLOW);
-        g.fillRect(60, 40, Math.max(0, (int) (player.getHealth() * HEALTH_BAR_SCALE)), 10);
-        g.drawString("Dashes: " + player.getDashes(), 50, 100);
-        g.drawString("Rainbows: " + player.getAmmo(), 50, 130);
-        g.drawString(String.valueOf(player.getScore()), 390, 100);
-
-        if (level instanceof FinalLevel finalLevel) {
-            Boss boss = finalLevel.getBoss();
-            if (boss != null) {
-                g.setColor(Color.RED);
-                g.fillRect(60, 740, Math.max(0, (int) (boss.getHealth() * BOSS_BAR_SCALE)), 10);
+        lighting.paintOver(g);
+        for (Object body : level.getDynamicBodies()) {
+            if (body instanceof Flashable flashing) {
+                paintFlash(g, flashing);
             }
         }
+    }
+
+    private Boss boss() {
+        return level instanceof FinalLevel finalLevel ? finalLevel.getBoss() : null;
+    }
+
+    /** Draws a white silhouette of the body's current sprite over it, fading out after a hit. */
+    private void paintFlash(Graphics2D g, Flashable body) {
+        float amount = body.flashAmount();
+        Sprite sprite = body.getSprite();
+        if (amount <= 0 || sprite == null) {
+            return;
+        }
+        Image image = sprite.image();
+        int sourceWidth = image.getWidth(this);
+        int sourceHeight = image.getHeight(this);
+        if (sourceWidth <= 0 || sourceHeight <= 0) {
+            return;
+        }
+        float scale = sprite.height() * getZoom() / sourceHeight;
+        int width = Math.round(sourceWidth * scale);
+        int height = Math.round(sourceHeight * scale);
+        BufferedImage white = silhouette(image, width, height);
+
+        // Same placement as the engine uses: the image centred on the body's position.
+        Point2D.Float centre = worldToView(body.getPosition());
+        Composite saved = g.getComposite();
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1, amount)));
+        g.drawImage(white, AffineTransform.getTranslateInstance(centre.x - width / 2f, centre.y - height / 2f), null);
+        g.setComposite(saved);
+    }
+
+    /** The image's current frame at the given size, with every visible pixel turned white. */
+    private BufferedImage silhouette(Image image, int width, int height) {
+        if (silhouette.getWidth() != width || silhouette.getHeight() != height) {
+            silhouette = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        }
+        Graphics2D g = silhouette.createGraphics();
+        g.setComposite(AlphaComposite.Clear);
+        g.fillRect(0, 0, width, height);
+        g.setComposite(AlphaComposite.SrcOver);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g.drawImage(image, 0, 0, width, height, this);
+        g.setComposite(AlphaComposite.SrcIn);
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, width, height);
+        g.dispose();
+        return silhouette;
     }
 }

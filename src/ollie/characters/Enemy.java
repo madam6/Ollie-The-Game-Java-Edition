@@ -1,12 +1,15 @@
 package ollie.characters;
 
-import city.cs.engine.BodyImage;
 import city.cs.engine.DynamicBody;
 import city.cs.engine.Shape;
 import city.cs.engine.StepEvent;
 import city.cs.engine.StepListener;
 import ollie.audio.Sound;
 import ollie.levels.GameLevel;
+import ollie.ui.Flashable;
+import ollie.ui.Lighting;
+import ollie.ui.Pulse;
+import ollie.ui.Sprite;
 import ollie.util.Timers;
 import org.jbox2d.common.Vec2;
 
@@ -17,13 +20,14 @@ import java.util.Random;
  * Shared behaviour for flying enemies: spawn at a random side, fly back and forth across
  * the screen while bobbing up and down, attack on a timer, and die when out of health.
  */
-public abstract class Enemy extends DynamicBody implements StepListener {
+public abstract class Enemy extends DynamicBody implements StepListener, Flashable, Lighting.LightSource {
 
     private static final Random RANDOM = new Random();
     private static final float SPAWN_X = 19;
     private static final float TURN_X = 14.99f;
     private static final float LOW_Y = 0;
     private static final float HIGH_Y = 10;
+    private static final int FLASH_MS = 120;
 
     protected final GameLevel level;
     protected final Player player;
@@ -33,12 +37,13 @@ public abstract class Enemy extends DynamicBody implements StepListener {
     private final Sound hurtSound;
     private final Sound deathSound;
     private final Timer attackTimer;
+    private final Pulse flash = new Pulse(FLASH_MS);
 
     private int health;
     private boolean movingRight;
     private boolean dead;
     private boolean silenced;
-    private BodyImage sprite;
+    private Sprite sprite;
 
     protected Enemy(GameLevel level, Shape shape, int health, int scoreValue, float speed, int attackPeriodMs,
                     Sound ambient, Sound hurtSound, Sound deathSound) {
@@ -61,10 +66,10 @@ public abstract class Enemy extends DynamicBody implements StepListener {
     }
 
     /** Sprite while flying in the given direction. */
-    protected abstract BodyImage sprite(boolean right);
+    protected abstract Sprite sprite(boolean right);
 
     /** Sprite shown after taking a hit, until the enemy next turns around. */
-    protected abstract BodyImage hurtSprite(boolean right);
+    protected abstract Sprite hurtSprite(boolean right);
 
     /** Fires this enemy's attack. Called by the attack timer. */
     protected abstract void attack();
@@ -81,16 +86,28 @@ public abstract class Enemy extends DynamicBody implements StepListener {
         return movingRight;
     }
 
+    @Override
+    public Sprite getSprite() {
+        return sprite;
+    }
+
+    @Override
+    public float flashAmount() {
+        return flash.value();
+    }
+
     public void takeHit(int damage) {
         if (dead) {
             return;
         }
         health -= damage;
         setSprite(hurtSprite(movingRight));
+        flash.trigger();
         if (health <= 0) {
             dead = true;
             silence();
             deathSound.play();
+            level.getScreenShake().shake(6, 250);
             onDeath();
         } else {
             hurtSound.play();
@@ -112,12 +129,18 @@ public abstract class Enemy extends DynamicBody implements StepListener {
         }
     }
 
-    protected void setSprite(BodyImage image) {
-        if (image != sprite) {
+    protected void setSprite(Sprite next) {
+        if (next != sprite) {
             removeAllImages();
-            addImage(image);
-            sprite = image;
+            addImage(next.bodyImage());
+            sprite = next;
         }
+    }
+
+    /** A dim light around the enemy, so dark sprites still stand out on the dark levels. */
+    @Override
+    public void addLight(Lighting lighting) {
+        lighting.light(getPosition(), 5, 0.6f);
     }
 
     @Override

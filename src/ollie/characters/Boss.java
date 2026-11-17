@@ -1,6 +1,5 @@
 package ollie.characters;
 
-import city.cs.engine.BodyImage;
 import city.cs.engine.PolygonShape;
 import city.cs.engine.Shape;
 import ollie.audio.Sound;
@@ -8,6 +7,8 @@ import ollie.bullets.BurgerBullet;
 import ollie.bullets.BurstBullet;
 import ollie.bullets.MissileBullet;
 import ollie.levels.GameLevel;
+import ollie.ui.Lighting;
+import ollie.ui.Sprite;
 import org.jbox2d.common.Vec2;
 
 /**
@@ -17,37 +18,49 @@ import org.jbox2d.common.Vec2;
 public class Boss extends Enemy {
 
     public static final int MAX_HEALTH = 600;
+    /** Phase 2 starts once health drops to this or below. */
+    public static final int PHASE_2_HEALTH = 400;
+    public static final int PHASE_3_HEALTH = 200;
 
     private static final Shape SHAPE = new PolygonShape(
-            0.58f, 0.85f, 3.3f, 1.9f, 1.16f, 5.1f, -1.46f, 4.93f, -3.77f, 2.62f, -1.6f, 1.16f);
-    private static final BodyImage[] SPRITES = {
+            0.55f, 0.8f, 3.11f, 1.79f, 1.09f, 4.8f, -1.37f, 4.64f, -3.55f, 2.47f, -1.51f, 1.09f);
+    private static final Sprite[] SPRITES = {
             sprite("boss.gif"), sprite("bosssecondPhase.gif"), sprite("bossThirdPhase.gif")};
-    private static final BodyImage[] HURT_SPRITES = {
+    private static final Sprite[] HURT_SPRITES = {
             sprite("bossdamaged.gif"), sprite("bosssecondPhaseDamaged.gif"), sprite("bossThirdPhaseDamage.gif")};
-    private static final BodyImage DEATH = sprite("bossThirdPhaseDamageDied.gif");
+    private static final Sprite DEATH = sprite("bossThirdPhaseDamageDied.gif");
 
     public Boss(GameLevel level) {
         super(level, SHAPE, MAX_HEALTH, 0, 6, 1000, Sound.RONALD_FLYING, Sound.BOSS_DAMAGED, Sound.RONALD_DIED);
     }
 
-    private static BodyImage sprite(String file) {
-        return new BodyImage("data/" + file, 17);
+    /** The boss is drawn on a 64-pixel canvas, twice the size of the other characters. */
+    private static Sprite sprite(String file) {
+        return new Sprite(file, 64, Sprite.LARGE);
     }
 
     /** 1 above 400 health, 2 above 200, 3 below that. */
     public int phase() {
         int health = getHealth();
-        return health > 400 ? 1 : health > 200 ? 2 : 3;
+        return health > PHASE_2_HEALTH ? 1 : health > PHASE_3_HEALTH ? 2 : 3;
     }
 
     @Override
-    protected BodyImage sprite(boolean right) {
+    protected Sprite sprite(boolean right) {
         return SPRITES[phase() - 1];
     }
 
     @Override
-    protected BodyImage hurtSprite(boolean right) {
+    protected Sprite hurtSprite(boolean right) {
         return HURT_SPRITES[phase() - 1];
+    }
+
+    @Override
+    public void takeHit(int damage) {
+        super.takeHit(damage);
+        if (!isDead()) {
+            level.getScreenShake().shake(3, 120);
+        }
     }
 
     @Override
@@ -65,12 +78,22 @@ public class Boss extends Enemy {
         }
     }
 
+    /**
+     * Lights up the area around the boss. No coloured glow: the boss flies against black space,
+     * where a glow only shows as a dark disc. The jellyfish sits above the body's origin.
+     */
+    @Override
+    public void addLight(Lighting lighting) {
+        lighting.light(getPosition().add(new Vec2(0, 3)), 12, 1);
+    }
+
     /** The boss stays on screen playing its death animation while the victory screen shows. */
     @Override
     protected void onDeath() {
         setSprite(DEATH);
         setLinearVelocity(new Vec2(0, 0));
         setGravityScale(0);
+        level.getScreenShake().shake(14, 700);
         level.victory();
     }
 }

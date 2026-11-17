@@ -40,7 +40,7 @@ The script compiles the sources into `build/` and starts `ollie.Game`. In Intell
 | <img src="docs/screenshots/level1.png" width="400" alt="Level 1"> | <img src="docs/screenshots/level2.png" width="400" alt="Level 2"> |
 | Level 1: planes | Level 2: clowns throwing burgers |
 | <img src="docs/screenshots/level3.png" width="400" alt="Level 3"> | <img src="docs/screenshots/transition.png" width="400" alt="Transition between levels"> |
-| Level 3: suits firing spreads | One of the animated transitions between levels |
+| Level 3: suits firing spreads in a cave lit by the volcano | One of the animated transitions between levels |
 | <img src="docs/screenshots/boss-phase1.png" width="400" alt="Boss, phase 1"> | <img src="docs/screenshots/boss-phase3.png" width="400" alt="Boss, phase 3"> |
 | Boss, first phase | Boss, third phase |
 | <img src="docs/screenshots/victory.png" width="400" alt="Victory screen"> | <img src="docs/screenshots/game-over.png" width="400" alt="Game over in endless mode"> |
@@ -81,7 +81,7 @@ src/ollie/
 ├── characters/   Player, the Enemy base class, three enemy types and the Boss
 ├── bullets/      projectiles; each one handles its own collisions
 ├── items/        pickups and barrels
-├── ui/           menu, in-game view with the HUD, sprite buttons
+├── ui/           menu, in-game view, HUD, lighting, sprite sizing
 └── input/        keyboard controls
 ```
 
@@ -104,6 +104,14 @@ public void begin() {
 ```
 
 The physics step, the spawn timers and input all run on the Swing event thread, so game state is never touched from two threads at once. The one exception is a background thread that decodes the sounds while the menu is showing.
+
+## Rendering
+
+The art is drawn on 32-pixel canvases and exported at 10 times that size. CityEngine sizes an image by its height in world units, and the original heights didn't divide evenly: enemies came out at 4.38 screen pixels per art pixel, pickups at 3.13 and bullets at 2.5. Some art pixels ended up a screen pixel wider than their neighbours, and sprites shimmered as they moved. `Sprite` picks heights that land on whole numbers instead. Characters, barrels and explosions use 5 screen pixels per art pixel, half the backgrounds' 10, and pickups and bullets use 3. Hitboxes were scaled to match.
+
+`Lighting` adds glows, ground shadows and darkness on a grid of 5×5-pixel cells, one art pixel each, and scales the grid up without smoothing. Light falls off in flat bands, like hand-shaded pixel art. A glow adds light to the background colour under each cell, so a rainbow shot lights up the wall behind it. Level 3 and the boss fight are dark apart from the light around Ollie, shots, pickups, enemies and the volcano. Characters flash white when hit, and explosions and kills shake the screen. The HUD sits on the same 5-pixel grid and uses a small built-in font.
+
+On the dark levels a full repaint, lighting included, takes about 1 ms.
 
 ## Performance
 
@@ -135,6 +143,7 @@ Bugs fixed along the way: retrying story mode could leave level 1 with no planes
 
 ## Known limitations
 
+- The backgrounds are drawn at 10 screen pixels per art pixel and the characters at 5, so the scenery has half the detail of the characters in front of it. Matching them would mean redrawing the art.
 - The game has to be started from the project root, because assets are loaded by relative path.
 - The music is uncompressed WAV, which accounts for most of the repository's size (about 120 MB).
 - Each sound has one clip, so triggering a sound that is already playing restarts it instead of layering a second copy.

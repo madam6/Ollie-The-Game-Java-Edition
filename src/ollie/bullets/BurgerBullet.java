@@ -1,6 +1,5 @@
 package ollie.bullets;
 
-import city.cs.engine.BodyImage;
 import city.cs.engine.CollisionEvent;
 import city.cs.engine.PolygonShape;
 import city.cs.engine.Shape;
@@ -9,15 +8,17 @@ import city.cs.engine.StepListener;
 import city.cs.engine.World;
 import ollie.audio.Sound;
 import ollie.characters.Player;
+import ollie.ui.Lighting;
+import ollie.ui.Sprite;
 import org.jbox2d.common.Vec2;
 
 /** Thrown by the clown and the boss. Bounces between the edges of the screen until eaten. */
 public class BurgerBullet extends Bullet implements StepListener {
 
     private static final Shape SHAPE = new PolygonShape(
-            -0.05f, -0.5f, 1.03f, -0.03f, 1.02f, 0.72f, 0.42f, 1.18f, -0.5f, 1.15f, -1.05f, 0.71f, -1.02f, -0.08f);
-    private static final BodyImage BURGER = new BodyImage("data/burgerBullet.png", 4);
-    private static final BodyImage EATEN = new BodyImage("data/burgerBulletEaten.gif", 4);
+            -0.06f, -0.6f, 1.24f, -0.04f, 1.22f, 0.86f, 0.5f, 1.42f, -0.6f, 1.38f, -1.26f, 0.85f, -1.22f, -0.1f);
+    private static final Sprite BURGER = Sprite.small("burgerBullet.png");
+    private static final Sprite EATEN = Sprite.small("burgerBulletEaten.gif");
 
     private static final float SPEED = 50;
     private static final float BOUNCE_X = 19;
@@ -51,6 +52,12 @@ public class BurgerBullet extends Bullet implements StepListener {
             Sound.BURGER_EATEN.play();
             Sound.PLAYER_DAMAGED.play();
         }
+    }
+
+    /** Burgers don't glow, but they need a little light to be seen on the dark levels. */
+    @Override
+    public void addLight(Lighting lighting) {
+        lighting.light(getPosition(), 3, 0.7f);
     }
 
     @Override

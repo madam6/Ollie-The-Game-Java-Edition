@@ -1,6 +1,5 @@
 package ollie.characters;
 
-import city.cs.engine.BodyImage;
 import city.cs.engine.PolygonShape;
 import city.cs.engine.Shape;
 import city.cs.engine.StepEvent;
@@ -9,11 +8,16 @@ import city.cs.engine.Walker;
 import city.cs.engine.World;
 import ollie.audio.Sound;
 import ollie.bullets.RainbowBullet;
+import ollie.levels.GameLevel;
+import ollie.ui.Flashable;
+import ollie.ui.Lighting;
+import ollie.ui.Pulse;
+import ollie.ui.Sprite;
 import ollie.util.Timers;
 import org.jbox2d.common.Vec2;
 
 /** Ollie. Movement comes from {@link ollie.input.PlayerController}; this class keeps the stats and sprites. */
-public class Player extends Walker implements StepListener {
+public class Player extends Walker implements StepListener, Flashable, Lighting.LightSource {
 
     public static final int START_HEALTH = 500;
     private static final int START_AMMO = 5;
@@ -21,16 +25,16 @@ public class Player extends Walker implements StepListener {
     private static final Shape SHAPE = new PolygonShape(
             1.74f, -3.89f, 1.55f, 3.07f, -1.12f, 2.99f, -1.95f, -1.57f, -1.81f, -3.84f);
 
-    private static final BodyImage IDLE = sprite("ollieidle-export.gif");
-    private static final BodyImage WALK_RIGHT = sprite("ollieWalkingRight-export.gif");
-    private static final BodyImage WALK_LEFT = sprite("ollieWalkingLeft-export.gif");
-    private static final BodyImage JUMP_RIGHT = sprite("jumpRight.png");
-    private static final BodyImage JUMP_LEFT = sprite("jumpLeft.png");
-    private static final BodyImage DASH_RIGHT = sprite("dashRight.png");
-    private static final BodyImage DASH_LEFT = sprite("dashLeft.png");
-    private static final BodyImage FIRE_RIGHT = sprite("ollieRainbow-export.gif");
-    private static final BodyImage FIRE_LEFT = sprite("ollieRainbowL-export.gif");
-    private static final BodyImage HURT = sprite("ollieidleDamaged.png");
+    private static final Sprite IDLE = Sprite.large("ollieidle-export.gif");
+    private static final Sprite WALK_RIGHT = Sprite.large("ollieWalkingRight-export.gif");
+    private static final Sprite WALK_LEFT = Sprite.large("ollieWalkingLeft-export.gif");
+    private static final Sprite JUMP_RIGHT = Sprite.large("jumpRight.png");
+    private static final Sprite JUMP_LEFT = Sprite.large("jumpLeft.png");
+    private static final Sprite DASH_RIGHT = Sprite.large("dashRight.png");
+    private static final Sprite DASH_LEFT = Sprite.large("dashLeft.png");
+    private static final Sprite FIRE_RIGHT = Sprite.large("ollieRainbow-export.gif");
+    private static final Sprite FIRE_LEFT = Sprite.large("ollieRainbowL-export.gif");
+    private static final Sprite HURT = Sprite.large("ollieidleDamaged.png");
 
     /** Horizontal speed above which Ollie is drawn dashing rather than walking. */
     private static final float DASH_THRESHOLD = 6;
@@ -38,7 +42,11 @@ public class Player extends Walker implements StepListener {
     private static final int FIRE_WINDUP_MS = 800;
     private static final int FIRE_COOLDOWN_MS = 1000;
     private static final float RECOIL_SPEED = 5;
+    /** Distance from the body's centre down to the soles of Ollie's shoes. */
+    private static final float FEET = 3.9f;
+    private static final int FLASH_MS = 100;
 
+    private final Pulse flash = new Pulse(FLASH_MS);
     private int health = START_HEALTH;
     private int dashes;
     private int ammo = START_AMMO;
@@ -49,15 +57,11 @@ public class Player extends Walker implements StepListener {
     private boolean firing;
     private boolean canFire = true;
     private boolean facingRight = true;
-    private BodyImage sprite;
+    private Sprite sprite;
 
     public Player(World world) {
         super(world, SHAPE);
         setSprite(IDLE);
-    }
-
-    private static BodyImage sprite(String file) {
-        return new BodyImage("data/" + file, 8);
     }
 
     public int getHealth() {
@@ -84,8 +88,22 @@ public class Player extends Walker implements StepListener {
         return facingRight;
     }
 
+    @Override
+    public Sprite getSprite() {
+        return sprite;
+    }
+
+    @Override
+    public float flashAmount() {
+        return flash.value();
+    }
+
     public void damage(int amount) {
         health -= amount;
+        flash.trigger();
+        if (getWorld() instanceof GameLevel level) {
+            level.getScreenShake().shake(4, 150);
+        }
     }
 
     public void heal(int amount) {
@@ -166,6 +184,14 @@ public class Player extends Walker implements StepListener {
         setLinearVelocity(new Vec2(right ? -RECOIL_SPEED : RECOIL_SPEED, 0));
     }
 
+    /** A shadow on the ground, and on the dark levels a pool of light around Ollie. */
+    @Override
+    public void addLight(Lighting lighting) {
+        Vec2 position = getPosition();
+        lighting.shadow(position.x, position.y - FEET, 4);
+        lighting.light(position, 9, 1);
+    }
+
     @Override
     public void preStep(StepEvent e) {
     }
@@ -211,16 +237,16 @@ public class Player extends Walker implements StepListener {
         }
     }
 
-    private void show(BodyImage image, boolean right) {
+    private void show(Sprite image, boolean right) {
         facingRight = right;
         setSprite(image);
     }
 
     /** Swaps the sprite only when it actually changes, instead of every frame. */
-    private void setSprite(BodyImage image) {
+    private void setSprite(Sprite image) {
         if (image != sprite) {
             removeAllImages();
-            addImage(image);
+            addImage(image.bodyImage());
             sprite = image;
         }
     }

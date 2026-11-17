@@ -1,7 +1,6 @@
 package ollie.bullets;
 
 import city.cs.engine.Body;
-import city.cs.engine.BodyImage;
 import city.cs.engine.CollisionEvent;
 import city.cs.engine.PolygonShape;
 import city.cs.engine.Shape;
@@ -11,8 +10,11 @@ import ollie.audio.Sound;
 import ollie.characters.Boss;
 import ollie.characters.Enemy;
 import ollie.characters.Player;
+import ollie.ui.Lighting;
+import ollie.ui.Sprite;
 import org.jbox2d.common.Vec2;
 
+import java.awt.Color;
 import java.util.Random;
 
 /**
@@ -22,8 +24,11 @@ import java.util.Random;
 public class BurstBullet extends Bullet {
 
     private static final Shape SHAPE = new PolygonShape(-1.71f, -1.41f, 1.64f, -0.1f, -1.85f, 1.03f);
-    private static final BodyImage PLAYER_SHOT = new BodyImage("data/newAttack.png", 4);
-    private static final BodyImage ENEMY_SHOT = new BodyImage("data/newAttackEnemy.png", 4);
+    /** The shots are drawn on a 16-pixel canvas. */
+    private static final Sprite PLAYER_SHOT = new Sprite("newAttack.png", 16, Sprite.LARGE);
+    private static final Sprite ENEMY_SHOT = new Sprite("newAttackEnemy.png", 16, Sprite.LARGE);
+    private static final Color PLAYER_GLOW = new Color(0x6fb8ff);
+    private static final Color ENEMY_GLOW = new Color(0xff3030);
     private static final Random RANDOM = new Random();
 
     private static final int RADIUS = 20;
@@ -93,5 +98,11 @@ public class BurstBullet extends Bullet {
             Sound.BURST_HIT.play();
             destroy();
         }
+    }
+
+    @Override
+    public void addLight(Lighting lighting) {
+        lighting.glow(getPosition(), 2.5f, fromPlayer ? PLAYER_GLOW : ENEMY_GLOW, 0.3f);
+        lighting.light(getPosition(), 4, 0.8f);
     }
 }

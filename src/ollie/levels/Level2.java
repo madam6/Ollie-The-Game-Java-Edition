@@ -29,7 +29,7 @@ public class Level2 extends GameLevel {
         addFlatGround();
         addSideWalls();
         new Barrel(this, 15, -12);
-        new Barrel(this, 15, -7);
+        new Barrel(this, 15, -6.5f);
         new Barrel(this, -20, -12);
         new Barrel(this, -13, -12);
 

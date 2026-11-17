@@ -6,12 +6,14 @@ import ollie.characters.Boss;
 import ollie.items.Pickup;
 import ollie.ui.Images;
 
+import java.awt.Color;
 import java.awt.Image;
 
-/** The boss fight. Every pickup type shows up on a slow, staggered rotation. */
+/** The boss fight, at night. Every pickup type shows up on a slow, staggered rotation. */
 public class FinalLevel extends GameLevel {
 
     private static final Image BACKGROUND = Images.load("data/finalBackground-export.png");
+    private static final Color SHADE = new Color(0x0a0626);
     private static final int PICKUP_PERIOD_MS = 15_000;
 
     private Boss boss;
@@ -27,6 +29,16 @@ public class FinalLevel extends GameLevel {
     @Override
     public Image getBackground() {
         return BACKGROUND;
+    }
+
+    @Override
+    public float darkness() {
+        return 0.5f;
+    }
+
+    @Override
+    public Color darknessColour() {
+        return SHADE;
     }
 
     @Override
